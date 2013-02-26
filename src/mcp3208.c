@@ -1,21 +1,21 @@
-//static uint value = 0;
-#include	"include.h"
-#include	"CS5532DEF.h"
+#include <intrins.h>
+#include "datatypes.h"
+#include "mcp3208.h"
+#include "stc12c5a.h"
 
 //======Òý½Å¶¨Òå======
-sbit CS=P1^2;  
+sbit CS=P1^4;  
 sbit DIN =P1^5;            
 sbit DOUT =P1^6;
 sbit SCLK=P1^7;
-unsigned short  sample(unsigned char chx)
+
+static u8  i  = 0;
+static u16 ad = 0;
+
+
+u16 sample(u8 chx)
 {
-
-	unsigned char i;
-
-    unsigned int x;
-
-    x = 0;
-
+    ad = 0;
     SCLK = 0;                          // clk low first
     CS = 1; //add byteman
     CS = 0;                          // chxip select
@@ -44,22 +44,19 @@ unsigned short  sample(unsigned char chx)
         CS   = 1;
         return 0xffff;
      }
-   
-   
-
+    
     for (i=0;i<=11;i++) {              // 12 bit data
 
         SCLK = 1; SCLK = 0;
 
-        x <<= 1;
+        ad <<= 1;
 
-        x = x | DOUT;
+        ad = ad | DOUT;
 
     }
     SCLK = 0;
     CS   = 1;
-    //CS   = 0;
 
-    return (x);	
+    return (ad);	
 		
 }

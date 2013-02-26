@@ -362,6 +362,16 @@
               <FileType>5</FileType>
               <FilePath>..\src\STC12C5A.H</FilePath>
             </File>
+            <File>
+              <FileName>mcp3208.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\src\mcp3208.c</FilePath>
+            </File>
+            <File>
+              <FileName>usart1.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\src\usart1.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

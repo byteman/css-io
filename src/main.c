@@ -1,18 +1,7 @@
 #include <intrins.h>
+#include "datatypes.h"
+#include "mcp3208.h"
 #include "STC12C5A.H"
-
-/*!
-	\brief 串口1初始化
-*/
-void UartInit(void)		//115200bps@22.1184MHz
-{
-	PCON |= 0x80;		//使能波特率倍速位SMOD
-	SCON = 0x50;		//8位数据,可变波特率
-	AUXR |= 0x04;		//独立波特率发生器时钟为Fosc,即1T
-	BRT = 0xF4;		//设定独立波特率发生器重装值
-	AUXR |= 0x01;		//串口1选择独立波特率发生器为波特率发生器
-	AUXR |= 0x10;		//启动独立波特率发生器
-}
 
 void Delay100ms()		//@11.0592MHz
 {
@@ -43,5 +32,7 @@ int main()
 {
 	Delay1S();
 	UartInit();
+	sample(1);
+	
 	return 0;
 }

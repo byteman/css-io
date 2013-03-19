@@ -2,16 +2,19 @@
 
 #include "datatypes.h"
 #include "STC12C5A.H"
-#include "protocal.h"
+#include "usart1.h"
+#include "ByProtocol.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 
-static volatile u8 send_ok = 1;
-static volatile u8 recv_ok = 0;
-static u8 recv_index = 0;
-static u8 recv_buff[10];
-static u8 send_buff[32];
-static s8 send_count = 0;
-static s8 send_len  =  0;
-static Cmd gCmd;
+
+static xdata u8 recv_index = 0;
+static xdata u8 send_buff[128];
+static xdata s8 send_count = 0;
+static xdata s8 send_len  =  0;
+static xdata volatile u8 send_ok   = 1;
+
 /*!
 	\brief 串口1初始化
 */
@@ -23,52 +26,35 @@ void UartInit(void)		//115200bps@22.1184MHz
 	BRT = 0xF4;		//设定独立波特率发生器重装值
 	AUXR |= 0x01;		//串口1选择独立波特率发生器为波特率发生器
 	AUXR |= 0x10;		//启动独立波特率发生器
+    ES = 1;
+    EA = 1;
 }
 
+#define MAX_LEN     (6)
+#define LEFT_LEN (MAX_LEN-1)
 /*********************************************** 
 功能：       串口中断 	         
 ************************************************/
 void UART_Interrupt() interrupt 4 using 2
 {    
-	static unsigned char send_count=0; 
+	static xdata unsigned char send_count=0; 
 
 	unsigned char buf;
 
-  if(RI)
+    if(RI)
 	{
 		RI=0;
 		buf = SBUF;
 
-		if(buf == 0x02)
-		{
-			  recv_buff[0] = 0x2;
-			  recv_index = 1;
-			  recv_ok 	 = 0;
-		}
-		else if(buf == 0x03)
-		{
-			  if( recv_index == 5)
-			  {
-			  	  if( (recv_buff[0]+recv_buff[1]+recv_buff[2]+recv_buff[3]) ==  recv_buff[4])
-			  	  {
-			  	  	  recv_ok 	 = 1;
-			  	  } 
-			  }
-				
-				recv_index = 0;
-		}
-		else if(recv_index >= 1)
-		{
-			  if(recv_index < 4 )
-			  {
-			  		 recv_buff[recv_index++] = buf;
-			  }	
-		}        
+	    if(parseChar(buf))
+        {
+            SBUF = 'G';
+        }
 	}  
 	 	
-  if(TI)
+    if(TI)
 	{
-    TI=0;
+        TI=0;
 	 	send_count++;
 	 	if(send_count >= send_len)
 		{
@@ -84,11 +70,12 @@ void UART_Interrupt() interrupt 4 using 2
 ************************************************/
 void UartSend(u8* sendbuf, u32 len)
 {
-	u32 i = 0;
-	while(!send_ok);
+	xdata u32 i = 0;
+	
+    while(!send_ok);
 	for(i = 0 ; i < len ; i++)
 	{
-		   send_buff[i] = sendbuf[i];
+        send_buff[i] = sendbuf[i];
 	}
 
 	send_len = len;
@@ -98,16 +85,20 @@ void UartSend(u8* sendbuf, u32 len)
 	send_ok=0;
 }
 
-Cmd* UartRecvOk()
+static xdata char kd_string[128];
+int printk(const char* fmt,...)
 {
-	  if(recv_ok)
-	  {
-	  	gCmd.type = recv_buff[1];
-	 	gCmd.dir = recv_buff[2];
-	 	gCmd.param = recv_buff[3];
-	 	recv_ok  = 0;
-	 	return &gCmd;
-	  }
-	  return 0;
-	 	
+	
+	va_list ap;
+	
+	va_start(ap,fmt);
+	
+	memset(kd_string, 0, 64);
+	vsprintf(kd_string, fmt, ap);
+
+	UartSend((u8*)(&kd_string), strlen(kd_string));
+		
+	va_end(ap);
+	
+	return 1;
 }

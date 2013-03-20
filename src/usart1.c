@@ -8,13 +8,32 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+#define MAX_SEND_SIZE 128
+#define MAX_RECV_SIZE 8
+//中断接收
+static volatile bit uart1RxFlag = 0;
 
-static xdata u8 recv_index = 0;
-static xdata u8 send_buff[128];
-static xdata s8 send_count = 0;
-static xdata s8 send_len  =  0;
-static xdata volatile u8 send_ok   = 1;
+static xdata u8 rxChar  = 0;
+//static xdata u8 rxCount = 0;
+//static xdata u8 rxBuff[MAX_RECV_SIZE];
 
+///中断发送
+static xdata u8 sendBuff[MAX_SEND_SIZE];
+static xdata s8 sendCount = 0;
+static xdata s8 sendLen   =  0;
+static volatile bit sendComplete   = 1;
+
+static xdata char kd_string[MAX_SEND_SIZE];
+
+u8 isRecvChar()
+{
+    return  uart1RxFlag?1:0;
+}
+u8 getChar()
+{
+    uart1RxFlag = 0;
+    return  rxChar;
+}
 /*!
 	\brief 串口1初始化
 */
@@ -30,39 +49,30 @@ void UartInit(void)		//115200bps@22.1184MHz
     EA = 1;
 }
 
-#define MAX_LEN     (6)
-#define LEFT_LEN (MAX_LEN-1)
 /*********************************************** 
 功能：       串口中断 	         
 ************************************************/
 void UART_Interrupt() interrupt 4 using 2
 {    
-	static xdata unsigned char send_count=0; 
-
-	unsigned char buf;
 
     if(RI)
 	{
 		RI=0;
-		buf = SBUF;
-
-	    if(parseChar(buf))
-        {
-            SBUF = 'G';
-        }
+		rxChar = SBUF;
+        uart1RxFlag = 1;
 	}  
 	 	
     if(TI)
 	{
         TI=0;
-	 	send_count++;
-	 	if(send_count >= send_len)
+	 	sendCount++;
+	 	if(sendCount >= sendLen)
 		{
-        	send_count=0;
-        	send_len = 0;
-        	send_ok=1;
+        	sendCount=0;
+        	sendLen = 0;
+        	sendComplete = 1;
 		}
-		else SBUF=send_buff[send_count];
+		else SBUF=sendBuff[sendCount];
 	}
 }
 /*********************************************** 
@@ -72,20 +82,20 @@ void UartSend(u8* sendbuf, u32 len)
 {
 	xdata u32 i = 0;
 	
-    while(!send_ok);
+    while(!sendComplete);
 	for(i = 0 ; i < len ; i++)
 	{
-        send_buff[i] = sendbuf[i];
+        sendBuff[i] = sendbuf[i];
 	}
 
-	send_len = len;
-	send_count = 0;
-    SBUF=send_buff[0];	//开始发送
+	sendLen = len;
+	sendCount = 0;
+    SBUF=sendBuff[0];	//开始发送
 	
-	send_ok=0;
+	sendComplete = 0;
 }
 
-static xdata char kd_string[128];
+
 int printk(const char* fmt,...)
 {
 	

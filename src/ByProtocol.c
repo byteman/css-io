@@ -6,6 +6,14 @@
 #define MAX_CONTEXT_SIZE 32
 #define PAD_SIZE 3
 #define KEY_HEADER	0xA3
+
+#ifdef __C51__
+#define VAR_ATTR xdata
+#else
+#define VAR_ATTR 
+#endif
+
+#undef LENGTH_CHECK
 /*
 一种基于消息头的不定长度的协议解析函数,用于总数据长度小于255个字节
 头部		: 0xA3
@@ -17,28 +25,30 @@
 typedef enum{
 	STEP_HEADER=0,
 	STEP_LENGTH,
+#ifdef LENGTH_CHECK
 	STEP_CHECK_LENGHT,
+#endif
 	STEP_DATA,
 	STEP_CRC,
 }StepParser;
 
 
+static VAR_ATTR unsigned char totalBytes;
+static VAR_ATTR unsigned char context[MAX_CONTEXT_SIZE];
 
-typedef struct tagPacketParser{
-	unsigned char header;
-	unsigned char totalBytes;
-	unsigned char context[MAX_CONTEXT_SIZE];
-	unsigned char sum;
+static VAR_ATTR unsigned char prevContext[MAX_CONTEXT_SIZE];
+static VAR_ATTR unsigned char prevContextBytes = 0;
 
-	unsigned char step;
-	unsigned char curPos;
-	unsigned char contextBytes;
-}PacketParser;
+static VAR_ATTR unsigned char checkSum = 0;
+static VAR_ATTR unsigned char curStep = 0;
+static VAR_ATTR unsigned char curPos = 0;
+static VAR_ATTR unsigned char contextBytes = 0;
+static VAR_ATTR unsigned char packetValid= 0; //接收到一个数据包之后变成有效，接收到新的头部后，变成无效
+static VAR_ATTR DataProcType  dataProcFunc = NULL;
 
-static xdata PacketParser pktParser;
+
 static void parserInit(unsigned char step);
-static void calcSum(PacketParser* pPkt,unsigned char ch);
-static DataProcType dataProcFunc = NULL;
+
 
 void protoParserInit(DataProcType cbProc)
 {
@@ -48,20 +58,16 @@ void protoParserInit(DataProcType cbProc)
 
 void parserInit(unsigned char step)
 {
-	pktParser.header = KEY_HEADER;
-	pktParser.step	 = step;
-	pktParser.curPos = 0;
-	pktParser.sum	 = 0;
+
+	curStep	 = step;
+	curPos   = 0;
+	checkSum = 0;
 }
 
-void calcSum(PacketParser* pPkt,unsigned char ch)
+unsigned char checkBufSum(unsigned char* buf, unsigned int len)
 {
-	pPkt->sum += ch;
-}
-unsigned char checkSum(unsigned char* buf, unsigned int len)
-{
-	unsigned char sum = 0;
-	unsigned int  i   = 0;
+	VAR_ATTR unsigned char sum = 0;
+	VAR_ATTR unsigned int  i   = 0;
 	for(; i < len; i++)
 	{
 		sum += buf[i];
@@ -72,60 +78,70 @@ unsigned char checkSum(unsigned char* buf, unsigned int len)
 unsigned int  buildPacket(unsigned char* context, unsigned int contextSize,
 						  unsigned char* packet, unsigned int pktSize)
 {
-	xdata unsigned int i = 0;
+	VAR_ATTR unsigned int i = 0;
 
 	assert(context && packet);
 	assert (pktSize > (contextSize+PAD_SIZE));
 
 	packet[i++] = KEY_HEADER;
 	packet[i++] = contextSize+PAD_SIZE;
-	//pakcet[i++] = (~pakcet[i-1]) + 1;
+#ifdef LENGTH_CHECK
+	pakcet[i++] = (~pakcet[i-1]) + 1;
+#endif
 	memcpy(packet+i,context,contextSize);
 	i += contextSize;
-	packet[i++] = checkSum(packet,i);
+	packet[i++] = checkBufSum(packet,i);
 
 	return i;
 }
+unsigned char* readPacket(unsigned int* pktLen)
+{
+	if(packetValid==0) return NULL;
 
+	*pktLen = prevContextBytes;
+
+	return prevContext;
+}
 unsigned char parseChar(unsigned char rxChar)
 {
-    xdata unsigned char  ret = 0;
-	switch(pktParser.step)
+	VAR_ATTR unsigned char ret = 0;
+	switch(curStep)
 	{
 		case STEP_HEADER:
-			if(rxChar == pktParser.header)
+			if(rxChar == KEY_HEADER)
 			{
-				pktParser.step++;
-				pktParser.sum = rxChar;
+				context[curStep++] = rxChar;
+				curPos++;
+				packetValid = 0;
 			}
 			break;
 		case STEP_LENGTH:
-			pktParser.totalBytes	 = rxChar;
-			pktParser.contextBytes	 = pktParser.totalBytes-PAD_SIZE;
-			calcSum(&pktParser,rxChar);
-			//pktParser.step++;
-			pktParser.step+=2; //跳过长度校验
+			totalBytes	 = rxChar;
+			contextBytes = totalBytes-PAD_SIZE;
+			context[curStep++] = rxChar;
+			curPos++;
 			break;
+#ifdef LENGTH_CHECK
 		case STEP_CHECK_LENGHT:	
-			if( ((~rxChar)+1) == pktParser.totalBytes)
+			if( ((~rxChar)+1) == totalBytes)
 			{
-				pktParser.step++;
-				calcSum(&pktParser,rxChar);
+				context[curStep++] = rxChar;
+				curPos++;
 			}
 			else //长度校验不通过，无效数据，从新开始接收
 			{
 				parserInit(STEP_HEADER);
 			}
 			break;
+#endif
 		case STEP_DATA:
-			if(pktParser.curPos < pktParser.contextBytes)
+			if(curPos < totalBytes-1)
 			{
-				pktParser.context[pktParser.curPos] = rxChar;
-				pktParser.curPos++;
-				calcSum(&pktParser,rxChar);
-				if ( pktParser.curPos == pktParser.contextBytes )
+				context[curPos] = rxChar;
+				curPos++;
+				if( curPos == totalBytes-1 )
 				{
-					pktParser.step++;
+					curStep++;
 				}
 			}
 			else
@@ -134,21 +150,22 @@ unsigned char parseChar(unsigned char rxChar)
 			}
 			break;
 		case STEP_CRC:
-			//if(pktParser.sum == rxChar)
-			if(1)
+			if(checkBufSum(context,totalBytes-1) == rxChar)
 			{
+				context[curPos] = rxChar;
+
+				//拷贝接收到的数据区中的数据到已接收数据队列中去,这里只能保存最近的一个数据包，可以考虑保存多个数据包
+				memcpy(prevContext, context+STEP_DATA,contextBytes);
+				prevContextBytes = contextBytes;
+
 				if(dataProcFunc)
 				{
-					if(dataProcFunc(pktParser.context,pktParser.contextBytes) == 0)
-					{
-
-					}
-
-                    
-                    
+					dataProcFunc(context+STEP_DATA,contextBytes);
 				}
 				parserInit(STEP_HEADER);
-				ret = 1;	
+				ret = 1;
+				packetValid = 1;
+					
 			}
 			else
 			{

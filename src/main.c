@@ -4,6 +4,7 @@
 #include "STC12C5A.H"
 #include "usart1.h"
 #include "IOCtrl.h"
+#include "JDQ.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -12,28 +13,34 @@
 #define VER_MAJOR   1u
 #define VER_MIN     0u
 
-
+#define OSC_FREQ 22118400L
 //红色的工作指示灯
 sbit LED = P3^6;
 #define RED_LED_OFF (LED=1)
 #define RED_LED_ON  (LED=0)
+#define MAX_SEND_SIZE 32
+
+static volatile bit time50msFlag = 0;
+static volatile bit times1SFlag = 0;
+static volatile bit jdqSrvFlag = 0;
+static volatile bit adSendFlag = 1;
+
+static xdata u32 wdgCount = 0;
+
+static xdata s16 count50MS   = 2;
+static xdata s16 count1S = 40;
+
+static xdata u16 wildTicks = 0;
+static xdata u16 wildTicksCount = 0;  
+
+static xdata u8   sendBuf[MAX_SEND_SIZE];
+static xdata u16  adCode[CHANLE];
+
+xdata u32 pktLen  = 0;
+xdata u8* pkt = NULL;
 
 
-static volatile flag_50ms = 0;
-static volatile u8 timesFlag = 0;
-
-static xdata s16 count = 2;
-static xdata s16 count40 = 40;
-
-static xdata int wildTicks = 0;
-static xdata u32 wild_ticks_count = 0;  
-
-static xdata u8   sendBuf[32];
-static xdata u16	adCode[CHANLE];
-
-static xdata Cmd *pCmd  = NULL;
-
-void	readAD(void);
+static void	readAD(void);
 
 void Delay100ms()		//@11.0592MHz
 {
@@ -67,19 +74,20 @@ void tm0_isr() interrupt 1 using 1
     TL0 = 0x00;              //reload timer0 low byte
     TH0 = 0x4C;                //reload timer0 high byte
     
-    if (count-- == 0)               //50ms send
+    if (count50MS-- == 0)               //50ms send
     {
-        count = 2;               //reset counter
+        count50MS = 2;               //reset counter
         readAD(); //50ms 采样一次
-        flag_50ms = 1;
+        time50msFlag = 1;
     }
-    if( count40-- == 0)
+    if( count1S-- == 0)
     {
-        count40 = 40;
+        count1S = 40;
         //LED = ~LED;
-        timesFlag = 1;
-	    wildTicks = wild_ticks_count; 
-	    wild_ticks_count = 0;
+        times1SFlag = 1;
+        jdqSrvFlag  = 1;
+	    wildTicks = wildTicksCount; 
+	    wildTicksCount = 0;
     }
 }
 void Timer0Init(void)		//25毫秒@22.1184MHz
@@ -97,7 +105,6 @@ void Timer0Init(void)		//25毫秒@22.1184MHz
 void	readAD(void)
 {
 	xdata unsigned char  chanlx;
-	xdata unsigned short adcode = 0;
         
 	for(chanlx = 0;chanlx<CHANLE;chanlx++)
 	{		
@@ -105,6 +112,7 @@ void	readAD(void)
 	}	
 }
 /************************************************
+
 功能：发送AD   [17 bytes] 
 header:             0xAA
 幅度/仰角:          xx xx
@@ -126,21 +134,20 @@ void sendAD()
 	sendBuf[0] = 0xAA;
 	for(index = 0; index < CHANLE;  index++)
 	{
-			sendBuf[index*2+1] = (adCode[index]>>8)&0xff;
-			sendBuf[index*2+2] = adCode[index]&0xff;
+		sendBuf[index*2+1] = (adCode[index]>>8)&0xff;
+		sendBuf[index*2+2] = adCode[index]&0xff;
 	}   
 
 	//if//if(times_flag) 1s 后才更新速度,因为风速是计算每秒采集的脉冲计数，所以必须等到1s后才能计算出速度
-    if(timesFlag)
+    if(times1SFlag)
 	{	    
-			sendBuf[index*2+1] = (wildTicks>>8)&0x7f; // 15bit == 0 repr availbile
-			sendBuf[index*2+2] = (wildTicks&0xff);
-			timesFlag = 0;
-            LED = ~LED;
+		sendBuf[index*2+1] = (wildTicks>>8)&0x7f; // 15bit == 0 repr availbile
+		sendBuf[index*2+2] = (wildTicks&0xff);
+		times1SFlag = 0;
 	}else
     {
-			sendBuf[index*2+1] = 0x80;      //15bit == 1 repr invalivble
-			sendBuf[index*2+2] = 0x00;
+		sendBuf[index*2+1] = 0x80;      //15bit == 1 repr invalivble
+		sendBuf[index*2+2] = 0x00;
 	}
 	for(index=1; index<=14; index++)
 	{
@@ -152,12 +159,20 @@ void sendAD()
 	UartSend(sendBuf,17);						
 		 
 }
-void send_ad_data()
+void adStopSend()
 {
-    if(flag_50ms)
+    adSendFlag = 0;
+}
+void adResumeSend()
+{
+    adSendFlag = 1;
+}
+void sendADSrv()
+{
+    if(time50msFlag && adSendFlag)
     {
         sendAD();
-        flag_50ms = 0;
+        time50msFlag = 0;
     }	
 }
 
@@ -166,14 +181,13 @@ void sendVersion(void)
     printk("ver%d.%d\r\n",VER_MAJOR,VER_MIN);
 }
 
-
 void PCA_isr() interrupt 7 using 1
 {
     CCF0 = 0;                       //Clear interrupt flag
     LED = !LED;             //toggle the test pin while CEX0(P1.3) have a falling edge
-    wild_ticks_count++;
+    wildTicksCount++;
 }
-
+//做脉冲捕获用
 void pcaInit()
 {
     AUXR1 |= 0x40;                  //将PCA0切换到P4.2口
@@ -194,7 +208,7 @@ void pcaInit()
 
     while (1);
 }
-
+///启用推挽输出
 void gpioInit(void)
 {
 
@@ -203,21 +217,54 @@ void gpioInit(void)
 }
 
 
+void watchDogInit()     // 1.137s 
+{ 
+     WDT_CONTR |= 0x5;  //prev_div=3 (timeout = ( 12 * 2^(prev_div+1) * 32768 ) /  OSC_FREQ = 1.137s)
+     WDT_CONTR |= 0x8 ; //enable idle count
+     WDT_CONTR |= 0x20; //enable dog
+     WDT_CONTR |= 0x10; //clear dog  
+}
+void watchDogReset()
+{
+    WDT_CONTR |= 0x10; //clear dog 
+}
+
 int main()
 {
+   
 	Delay1S();
+	
 	UartInit();   //串口1初始化(115200 ,N8)
-	Timer0Init();  //定时器0初始化(25ms中断一次)
     //pcaInit();     //PCA0做外部中断计数器
     gpioInit();
     ioCtrlInit();
 	sendVersion(); //发送版本号
 
+    Timer0Init();  //定时器0初始化(25ms中断一次)
 	while(1)
     {
          //Delay1S();
          //sendAD();  //发送采集的AD值
-         ioCtrlSrv();
+
+         //sendADSrv();
+
+         if(isRecvChar())
+         {
+            if(parseChar(getChar()))
+            {
+                pkt = readPacket(&pktLen);
+                if(pkt) ioParsePacket(pkt,pktLen);
+            }
+         }
+         if(jdqSrvFlag)
+         {
+              JDQ_Service();
+              jdqSrvFlag = 0;
+         }
+
+         //if((( wdgCount++ ) % 10000 ) == 0) watchDogReset();    //watch dog
+
+
          
     }
 	return 0;

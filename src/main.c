@@ -4,7 +4,10 @@
 #include "STC12C5A.H"
 #include "usart1.h"
 #include "IOCtrl.h"
-#include "JDQ.h"
+#include "JDQ.h"     
+#include "TinyFifo.h"
+#include "common.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -12,61 +15,35 @@
 #define CHANLE 		6
 #define VER_MAJOR   1u
 #define VER_MIN     0u
+#define MAX_AD_BUFSIZE 32u
 
-#define OSC_FREQ 22118400L
+
 //红色的工作指示灯
 sbit LED = P3^6;
-#define RED_LED_OFF (LED=1)
-#define RED_LED_ON  (LED=0)
-#define MAX_SEND_SIZE 32
 
-static volatile bit time50msFlag = 0;
-static volatile bit times1SFlag = 0;
-static volatile bit jdqSrvFlag = 0;
-static volatile bit adSendFlag = 1;
 
-static xdata u32 wdgCount = 0;
+////////////flag///////////////
 
-static xdata s16 count50MS   = 2;
-static xdata s16 count1S = 40;
+static volatile bit jdqSrvFlag      = 0;
+static volatile bit adSendFlag      = 1;
+static volatile bit time50msFlag    = 0;
+static volatile bit times1SFlag     = 0;
 
+static xdata u32 wdgCount  = 0;
+static xdata s16 count50MS = 2;
+static xdata s16 count1S   = 40;
 static xdata u16 wildTicks = 0;
 static xdata u16 wildTicksCount = 0;  
 
-static xdata u8   sendBuf[MAX_SEND_SIZE];
-static xdata u16  adCode[CHANLE];
+static xdata u8  sendBuf[MAX_AD_BUFSIZE];
+static xdata u16 adCode[CHANLE];
 
-xdata u32 pktLen  = 0;
-xdata u8* pkt = NULL;
+static xdata u32 pktLen  = 0;
+static xdata u8* pkt = NULL;
 
 
 static void	readAD(void);
 
-void Delay100ms()		//@11.0592MHz
-{
-	xdata unsigned char i, j, k;
-
-	_nop_();
-	_nop_();
-	i = 5;
-	j = 52;
-	k = 195;
-	do
-	{
-		do
-		{
-			while (--k);
-		} while (--j);
-	} while (--i);
-}
-void Delay1S()
-{
-	xdata unsigned char cnt = 10;
-	while(cnt--)
-	{
-		 Delay100ms();
-	}
-}
 
 /* Timer0 interrupt routine */
 void tm0_isr() interrupt 1 using 1
@@ -113,7 +90,7 @@ void	readAD(void)
 }
 /************************************************
 
-功能：发送AD   [17 bytes] 
+功能：发送AD   [19 bytes] 
 header:             0xAA
 幅度/仰角:          xx xx
 高度                xx xx
@@ -122,6 +99,7 @@ header:             0xAA
 倾角传感器x         xx xx
 倾角传感器y         xx xx
 风速                xx xx
+继电器状态          xx xx
 CHECKSUM            xx
 TAIL:               0x55
 ************************************************/
@@ -129,7 +107,6 @@ void sendAD()
 {
 	xdata unsigned char sum = 0;
 	xdata int index = 0;
-	xdata short tmp = 0;
 
 	sendBuf[0] = 0xAA;
 	for(index = 0; index < CHANLE;  index++)
@@ -146,7 +123,7 @@ void sendAD()
 		times1SFlag = 0;
 	}else
     {
-		sendBuf[index*2+1] = 0x80;      //15bit == 1 repr invalivble
+		sendBuf[index*2+1] = 0x80;      //15bit == 1  invalid
 		sendBuf[index*2+2] = 0x00;
 	}
 	for(index=1; index<=14; index++)
@@ -178,7 +155,7 @@ void sendADSrv()
 
 void sendVersion(void)
 {
-    printk("ver%d.%d\r\n",VER_MAJOR,VER_MIN);
+    printk("humeng io board ver%d.%d\r\n",VER_MAJOR,VER_MIN);
 }
 
 void PCA_isr() interrupt 7 using 1
@@ -228,19 +205,20 @@ void watchDogReset()
 {
     WDT_CONTR |= 0x10; //clear dog 
 }
-
+xdata u8 rxChar = 0;
 int main()
 {
    
 	Delay1S();
 	
-	UartInit();   //串口1初始化(115200 ,N8)
-    //pcaInit();     //PCA0做外部中断计数器
-    gpioInit();
-    ioCtrlInit();
-	sendVersion(); //发送版本号
+	UartInit();     //串口1初始化(115200 ,N8)
+    //pcaInit();    //PCA0做外部中断计数器
+    gpioInit();     //启用推挽模式
+    ioCtrlInit();   //通信协议初始化
+	sendVersion();  //发送版本号
 
     Timer0Init();  //定时器0初始化(25ms中断一次)
+    //watchDogInit(); //启动看门狗
 	while(1)
     {
          //Delay1S();
@@ -248,13 +226,17 @@ int main()
 
          //sendADSrv();
 
-         if(isRecvChar())
+         if(!tinyFifoEmpty())
          {
-            if(parseChar(getChar()))
+            if(tinyFifoGetc(&rxChar) == 0) //get data ok;
             {
-                pkt = readPacket(&pktLen);
-                if(pkt) ioParsePacket(pkt,pktLen);
+                if(parseChar(rxChar))
+                {
+                    pkt = readPacket(&pktLen);
+                    if(pkt) ioParsePacket(pkt,pktLen);
+                } 
             }
+            
          }
          if(jdqSrvFlag)
          {

@@ -4,6 +4,7 @@
 #include "ByProtocol.h"
 #include "usart1.h"
 #include "JDQ.h"
+#include "datatypes.h"
 
 #include <stdio.h>
 
@@ -13,11 +14,22 @@ extern void adStopSend();
 
 static xdata  JDQ_CMD jdq_cmd;
 
-xdata u8 type  = 0;
-xdata u8 idx   = 0;
-xdata u8 state = 0;
-xdata u8 dir   = 0;
+static xdata u8 type  = 0;
+static xdata u8 idx   = 0;
+static xdata u8 state = 0;
+static xdata u8 dir   = 0;
+static xdata u8 ackBuf[32];
 
+int sendIoAck(u8 cmd)
+{
+  
+    u32 ll = 0;
+    ll = buildPacket((u8*)&cmd,1,ackBuf,32);
+
+    UartSend(ackBuf,11);
+
+    //return UartSend((u8*)ackBuf,ll);
+}
 /*
 指定控制某个继电器,LED指示灯和继电器是连接在一起的，所以不用单独控制LED和继电器的状态配合
 

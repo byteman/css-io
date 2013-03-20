@@ -1,4 +1,5 @@
 #include "JDQ.H"
+#include "usart1.h"
 #include <stdio.h>
 #include <assert.h>
 /*
@@ -40,8 +41,8 @@ void      JDQ_Init(U8 numPort,JDQWrite cbJdq)
 		jdq_con[i].who          = JDQ_NONE_ACTIVE;
 		jdq_con[i].need_back    = 0;
 		jdq_con[i].index        = i + 1;
-		jdq_con[i].cur_status   = JDQ_STATUS_NC; //初始化所有继电器都接常闭触点
-		jdq_con[i].pre_status   = JDQ_STATUS_NC;
+		jdq_con[i].cur_status   = JDQ_STATUS_NO; //初始化所有继电器都接常闭触点
+		jdq_con[i].pre_status   = JDQ_STATUS_NO;
 		jdq_con[i].back_delay_S = 0;
 		f_JDQ_DO(i,jdq_con[i].cur_status);//恢复到初始化状态
 	}
@@ -61,8 +62,10 @@ void JDQ_ControlEx(P_JDQ_CMD jdq_Par)
 		return;
 	idx--;
 	
+    //printk("s%d,c%d\r\n",(int)jdq_Par->status,(int)jdq_con[idx].cur_status);
 	if(jdq_Par->status == jdq_con[idx].cur_status)//如果状态和当前一致
 		return;	//直接返回，不控制	
+   
 	if(cbJdqFilter)
 	{
 		if(cbJdqFilter(jdq_Par->who,jdq_Par->index-1,jdq_Par->status))
@@ -82,6 +85,7 @@ void JDQ_ControlEx(P_JDQ_CMD jdq_Par)
 	
 		//保留上次的状态
 		jdq_con[idx].pre_status   = jdq_con[idx].cur_status;
+        
 		jdq_con[idx].cur_status   = jdq_Par->status;
 		jdq_con[idx].need_back    = 0;
 		jdq_con[idx].back_delay_S = 0;
@@ -93,6 +97,7 @@ void JDQ_ControlEx(P_JDQ_CMD jdq_Par)
 		//保留上次的状态
 		jdq_con[idx].pre_status   = jdq_con[idx].cur_status;
 		jdq_con[idx].cur_status   = jdq_Par->status;
+        
 		jdq_con[idx].need_back    = jdq_Par->need_back;
 		jdq_con[idx].back_delay_S = jdq_Par->back_S + 1;
 		jdq_con[idx].jdq_Ex_Par   = (void*)jdq_Par->jdq_func;

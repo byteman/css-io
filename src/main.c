@@ -209,7 +209,7 @@ xdata u8 rxChar = 0;
 int main()
 {
    
-	Delay1S();
+	Delay100ms();
 	
 	UartInit();     //串口1初始化(115200 ,N8)
     //pcaInit();    //PCA0做外部中断计数器
@@ -230,6 +230,7 @@ int main()
          {
             if(tinyFifoGetc(&rxChar) == 0) //get data ok;
             {
+                //printk("0x%0x\r\n",rxChar);
                 if(parseChar(rxChar))
                 {
                     pkt = readPacket(&pktLen);

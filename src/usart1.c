@@ -23,7 +23,7 @@ static xdata char kd_string[MAX_SEND_SIZE];   //下面的两个buff的长度需要一致
 static xdata u8 sendBuff[MAX_SEND_SIZE];
 static xdata s8 sendCount = 0;
 static xdata s8 sendLen   =  0;
-
+static xdata u8 rx_char = 0;
 
 
 
@@ -51,7 +51,8 @@ void UART_Interrupt() interrupt 4 using 2
     if(RI)
 	{
 		RI=0;
-        tinyFifoPutc(SBUF);
+        rx_char = SBUF;
+        tinyFifoPutc(rx_char);
 
 	}  
 	 	

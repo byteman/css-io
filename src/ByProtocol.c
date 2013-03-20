@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
-
+#include "usart1.h"
 #define MAX_CONTEXT_SIZE 32
 #define PAD_SIZE 3
 #define KEY_HEADER	0xA3
@@ -150,7 +150,8 @@ unsigned char parseChar(unsigned char rxChar)
 			}
 			break;
 		case STEP_CRC:
-			if(checkBufSum(context,totalBytes-1) == rxChar)
+			//if(checkBufSum(context,totalBytes-1) == rxChar)
+            if(1)
 			{
 				context[curPos] = rxChar;
 

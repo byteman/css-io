@@ -50,16 +50,16 @@ A3 08 00 01 01 01 05 B3 ==> set jdq[1] to      JDQ_STATUS_NO for 5s  and return 
 
 static void jdqCtrl(IOCmd* pCmd,u8 argc)
 {
-    printk("enter %s\n","jdqCtrl");
+    
 
     if(argc < 2) return;
-
+    
     type  = pCmd->type;
-    idx   = pCmd->param1 - 1;
+    idx   = pCmd->param1;
     state = pCmd->param2;
     dir   = pCmd->dir;
-    
-   
+  
+    //printk("jdqCtrl type=%d dir=%d,idx=%d,state=%d\r\n",(int)type,(int)dir,(int)idx,(int)state);
     if(dir == DIR_SET)
     {
         jdq_cmd.who = 1;
@@ -98,7 +98,7 @@ static void jdqCtrlEx(IOCmd* pCmd,u8 argc)
 
      if(argc < 2) return;
 
-     P1 = pCmd->param1;
+     P0 = pCmd->param1;
      P2 = (~pCmd->param2);
 
 }
@@ -165,18 +165,19 @@ unsigned char ioParsePacket( unsigned char* context, unsigned int len)
 void JDQWriteFunc(U8 idx,U8 state)
 {
 
-    printk("jdq[%d] state[%d]\r\n",(int)idx,(int)state);
-
+   // printk("jdq[%d] state[%d]\r\n",(int)idx,(int)state);
+    
     if( (idx < 8)  && (idx >= 0))
     {
-        if(state == JDQ_STATUS_NC)
-            P1 &= (~(1<< idx));
+        if(state == JDQ_STATUS_NC)    
+            P0 &= (~(1<< idx));
         else
-            P1 |= (1<< idx); 
+            P0 |= (1<< idx); 
+            
     }
     else if(  idx >= 8 && (idx < 16))
     {
-        idx -= 8;
+        idx -= 7;
         idx = 8-idx;
         if(state == JDQ_STATUS_NC)
             P2 &= (~(1<< idx));
@@ -187,6 +188,6 @@ void JDQWriteFunc(U8 idx,U8 state)
 
 void ioCtrlInit(void)
 {
-	protoParserInit(ioParsePacket);
+	protoParserInit(NULL);
     JDQ_Init(16,JDQWriteFunc);
 }

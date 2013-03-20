@@ -45,5 +45,5 @@ u8   tinyFifoLength()
 
 u8   tinyFifoEmpty()
 {
-    return  uart1RxFlag?1:0;
+    return  tinyFifoLength()?0:1;//uart1RxFlag?0:1;
 }

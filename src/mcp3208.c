@@ -3,7 +3,7 @@
 #include "mcp3208.h"
 #include "stc12c5a.h"
 
-//======引脚定义======
+//======Òý½Å¶¨Òå======
 sbit CS=P1^4;  
 sbit DIN =P1^5;            
 sbit DOUT =P1^6;
@@ -18,10 +18,12 @@ void Delay_uS(unsigned char us)
 	for(;us>0;us--)
 	{
 		_nop_();_nop_();_nop_();_nop_();_nop_();
+		_nop_();_nop_();_nop_();_nop_();_nop_();
+        	_nop_();_nop_();_nop_();_nop_();_nop_();
 		_nop_();_nop_();_nop_();_nop_();_nop_();	
 	}
 }
-#if 1      //for huameng
+#if 0      //for huameng
 u16 sample(u8 chx)
 {
     ad = 0;

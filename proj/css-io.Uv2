@@ -5,16 +5,16 @@ Target (io), 0x0000 // Tools: 'MCS-51'
 
 Group (src)
 
-File 1,2,<.\STARTUP.A51><STARTUP.A51>
 File 1,1,<..\src\main.c><main.c>
 File 1,1,<..\src\mcp3208.c><mcp3208.c>
 File 1,1,<..\src\usart1.c><usart1.c>
-File 1,1,<..\src\ByProtocol.c><ByProtocol.c>
-File 1,1,<..\src\IOCtrl.c><IOCtrl.c>
 File 1,1,<..\src\JDQ.C><JDQ.C>
 File 1,1,<..\src\TinyFifo.c><TinyFifo.c>
 File 1,1,<..\src\common.c><common.c>
 File 1,5,<..\src\common.h><common.h>
+File 1,2,<..\src\STARTUP.A51><STARTUP.A51>
+File 1,1,<..\src\ByProtocol.c><ByProtocol.c>
+File 1,1,<..\src\IOCtrl.c><IOCtrl.c>
 
 
 Options 1,0,0  // Target 'io'

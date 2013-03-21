@@ -27,9 +27,11 @@ sbit LED = P3^6;
 static volatile bit jdqSrvFlag      = 0;
 static volatile bit adSendFlag      = 1;
 static volatile bit time50msFlag    = 0;
+static volatile bit time25msFlag    = 0;
 static volatile bit times1SFlag     = 0;
 
 static xdata u32 wdgCount  = 0;
+
 static xdata s16 count50MS = 2;
 static xdata s16 count1S   = 40;
 static xdata u16 wildTicks = 0;
@@ -50,7 +52,7 @@ void tm0_isr() interrupt 1 using 1
 {
     TL0 = 0x00;              //reload timer0 low byte
     TH0 = 0x4C;                //reload timer0 high byte
-    
+    time25msFlag = 1;
     if (count50MS-- == 0)               //50ms send
     {
         count50MS = 2;               //reset counter
@@ -189,8 +191,8 @@ void pcaInit()
 void gpioInit(void)
 {
 
-    P1M1 = 0x40;
-    P1M0 = 0xB0;
+    P1M1 = 0x40;        //0100 0000
+    P1M0 = 0xB0;        //1011 0000
 }
 
 
@@ -205,6 +207,7 @@ void watchDogReset()
 {
     WDT_CONTR |= 0x10; //clear dog 
 }
+
 xdata u8 rxChar = 0;
 int main()
 {
@@ -221,10 +224,7 @@ int main()
     //watchDogInit(); //启动看门狗
 	while(1)
     {
-         //Delay1S();
-         //sendAD();  //发送采集的AD值
-
-         //sendADSrv();
+         sendADSrv();
 
          if(!tinyFifoEmpty())
          {

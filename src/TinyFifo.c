@@ -1,7 +1,7 @@
 #include "TinyFifo.h"
 #include "stc12c5a.h"
 
-#define MAX_RECV_SIZE 8
+#define MAX_RECV_SIZE 64
         
 //这里我只关闭了串口中断，因为只有串口中断中调用了putc函数，如果有很多中断中调用，那么需要关总中断
 #define ENTER_CRITICAL() ES=0   

@@ -39,7 +39,7 @@ unsigned int bit_reverse(unsigned int n)
 	n = ((n >> 16) & 0x0000ffff) | ((n << 16) & 0xffff0000);
 	return n;
 }
-
+#if 0
 unsigned char revertBits(unsigned char in)
 {
 	
@@ -59,3 +59,13 @@ unsigned char revertBits(unsigned char in)
 	
 
 }
+#else 
+unsigned char ReverseBits(unsigned char ch)
+{    
+    ch = (ch & 0x55) <<  1  | (ch >>  1) & 0x55;    
+    ch = (ch & 0x33) <<  2  | (ch >>  2) & 0x33;    
+    ch = (ch & 0x0F) <<  4  | (ch >>  4) & 0x0F;    
+    return ch;    
+}
+
+#endif

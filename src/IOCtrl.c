@@ -101,7 +101,7 @@ static void jdqCtrlEx(IOCmd* pCmd,u8 argc)
      if(argc < 2) return;
 
      P0 = ~(pCmd->param1);
-     P2 = ~(revertBits(pCmd->param2));
+     P2 = ~(ReverseBits(pCmd->param2));
 
 }
 /*!

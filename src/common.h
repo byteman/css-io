@@ -7,6 +7,6 @@
 void Delay1S();
 
 void Delay100ms();
-
+unsigned char revertBits(unsigned char in);
 
 #endif

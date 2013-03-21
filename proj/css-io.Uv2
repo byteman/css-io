@@ -12,7 +12,6 @@ File 1,1,<..\src\usart1.c><usart1.c>
 File 1,1,<..\src\ByProtocol.c><ByProtocol.c>
 File 1,1,<..\src\IOCtrl.c><IOCtrl.c>
 File 1,1,<..\src\JDQ.C><JDQ.C>
-File 1,1,<..\src\eeprom.c><eeprom.c>
 File 1,1,<..\src\TinyFifo.c><TinyFifo.c>
 File 1,1,<..\src\common.c><common.c>
 File 1,5,<..\src\common.h><common.h>

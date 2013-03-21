@@ -5,6 +5,7 @@
 #include "usart1.h"
 #include "JDQ.h"
 #include "datatypes.h"
+#include "common.h"
 
 #include <stdio.h>
 
@@ -19,6 +20,7 @@ static xdata u8 idx   = 0;
 static xdata u8 state = 0;
 static xdata u8 dir   = 0;
 static xdata u8 ackBuf[32];
+
 
 int sendIoAck(u8 cmd)
 {
@@ -58,7 +60,7 @@ static void jdqCtrl(IOCmd* pCmd,u8 argc)
     idx   = pCmd->param1;
     state = pCmd->param2;
     dir   = pCmd->dir;
-  
+
     //printk("jdqCtrl type=%d dir=%d,idx=%d,state=%d\r\n",(int)type,(int)dir,(int)idx,(int)state);
     if(dir == DIR_SET)
     {
@@ -98,8 +100,8 @@ static void jdqCtrlEx(IOCmd* pCmd,u8 argc)
 
      if(argc < 2) return;
 
-     P0 = pCmd->param1;
-     P2 = (~pCmd->param2);
+     P0 = ~(pCmd->param1);
+     P2 = ~(revertBits(pCmd->param2));
 
 }
 /*!

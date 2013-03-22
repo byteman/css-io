@@ -239,9 +239,10 @@ int main()
             }
             
          }
-         if(jdqSrvFlag)
+         if(jdqSrvFlag) // 1s call
          {
               JDQ_Service();
+              printk("rx=%d\r\n",getRxCount());
               jdqSrvFlag = 0;
          }
 

@@ -5,5 +5,5 @@ void UartInit(void);
 void UartSend(u8* sendbuf, u32 len);
 
 void printk(const char* fmt,...);
-
+u32 getRxCount();
 #endif

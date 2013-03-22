@@ -24,8 +24,8 @@ static xdata u8 sendBuff[MAX_SEND_SIZE];
 static xdata s8 sendCount = 0;
 static xdata s8 sendLen   =  0;
 static xdata u8 rx_char = 0;
-
-
+static xdata u32 rx_count  = 0;
+static xdata u32 tx_count  = 0;
 
 /*!
 	\brief 串口1初始化
@@ -41,7 +41,10 @@ void UartInit(void)		//115200bps@22.1184MHz
     ES = 1;
     EA = 1;
 }
-
+u32 getRxCount()
+{
+    return rx_count;
+}
 /*********************************************** 
 功能：       串口中断 	         
 ************************************************/
@@ -52,6 +55,7 @@ void UART_Interrupt() interrupt 4 using 2
 	{
 		RI=0;
         rx_char = SBUF;
+        rx_count++;
         tinyFifoPutc(rx_char);
 
 	}  
@@ -59,6 +63,7 @@ void UART_Interrupt() interrupt 4 using 2
     if(TI)
 	{
         TI=0;
+        tx_count++;
 	 	sendCount++;
 	 	if(sendCount >= sendLen)
 		{

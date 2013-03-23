@@ -25,7 +25,7 @@ sbit LED = P3^6;
 ////////////flag///////////////
 
 static volatile bit jdqSrvFlag      = 0;
-static volatile bit adSendFlag      = 1;
+static volatile bit adSendFlag      = 0;
 static volatile bit time50msFlag    = 0;
 static volatile bit time25msFlag    = 0;
 static volatile bit times1SFlag     = 0;
@@ -92,16 +92,16 @@ void	readAD(void)
 }
 /************************************************
 
-功能：发送AD   [19 bytes] 
+功能：发送AD   [17 bytes] 
 header:             0xAA
 幅度/仰角:          xx xx
 高度                xx xx
 重量                xx xx
-单机模式编码器      xx xx
+//单机模式编码器      xx xx [这个暂时不用，换成继电器的状态]
+继电器状态          xx xx
 倾角传感器x         xx xx
 倾角传感器y         xx xx
 风速                xx xx
-继电器状态          xx xx
 CHECKSUM            xx
 TAIL:               0x55
 ************************************************/
@@ -116,7 +116,8 @@ void sendAD()
 		sendBuf[index*2+1] = (adCode[index]>>8)&0xff;
 		sendBuf[index*2+2] = adCode[index]&0xff;
 	}   
-
+	sendBuf[7] = P0;
+	sendBuf[8] = revertBits(P2);
 	//if//if(times_flag) 1s 后才更新速度,因为风速是计算每秒采集的脉冲计数，所以必须等到1s后才能计算出速度
     if(times1SFlag)
 	{	    
@@ -163,7 +164,7 @@ void sendVersion(void)
 void PCA_isr() interrupt 7 using 1
 {
     CCF0 = 0;                       //Clear interrupt flag
-    LED = !LED;             //toggle the test pin while CEX0(P1.3) have a falling edge
+    LED = ~LED;             //toggle the test pin while CEX0(P1.3) have a falling edge
     wildTicksCount++;
 }
 //做脉冲捕获用
@@ -185,7 +186,6 @@ void pcaInit()
     CR = 1;                         //PCA timer start run
     EA = 1;
 
-    while (1);
 }
 ///启用推挽输出
 void gpioInit(void)
@@ -215,7 +215,7 @@ int main()
 	Delay100ms();
 	
 	UartInit();     //串口1初始化(115200 ,N8)
-    //pcaInit();    //PCA0做外部中断计数器
+    pcaInit();    //PCA0做外部中断计数器
     gpioInit();     //启用推挽模式
     ioCtrlInit();   //通信协议初始化
 	sendVersion();  //发送版本号
@@ -225,7 +225,7 @@ int main()
 	while(1)
     {
          sendADSrv();
-
+         #if 1
          if(!tinyFifoEmpty())
          {
             if(tinyFifoGetc(&rxChar) == 0) //get data ok;
@@ -239,10 +239,11 @@ int main()
             }
             
          }
+         #endif
          if(jdqSrvFlag) // 1s call
          {
               JDQ_Service();
-              printk("rx=%d\r\n",getRxCount());
+              //printk("wildcnt=%d\r\n",wildTicksCount);
               jdqSrvFlag = 0;
          }
 

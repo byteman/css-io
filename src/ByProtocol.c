@@ -61,7 +61,7 @@ void parserInit(unsigned char step)
 
 	curStep	 = step;
 	curPos   = 0;
-	checkSum = 0;
+	checkSum = 0;  
 }
 
 unsigned char checkBufSum(unsigned char* buf, unsigned int len)
@@ -99,7 +99,7 @@ unsigned char* readPacket(unsigned int* pktLen)
 	if(packetValid==0) return NULL;
 
 	*pktLen = prevContextBytes;
-
+    //packetValid = 0;
 	return prevContext;
 }
 unsigned char parseChar(unsigned char rxChar)
@@ -117,9 +117,17 @@ unsigned char parseChar(unsigned char rxChar)
 			break;
 		case STEP_LENGTH:
 			totalBytes	 = rxChar;
-			contextBytes = totalBytes-PAD_SIZE;
-			context[curStep++] = rxChar;
-			curPos++;
+            if(totalBytes > PAD_SIZE)
+            {
+               	contextBytes = totalBytes-PAD_SIZE;
+    			context[curStep++] = rxChar;
+    			curPos++;
+            }
+            else
+            {
+                parserInit(STEP_HEADER);
+            }
+		
 			break;
 #ifdef LENGTH_CHECK
 		case STEP_CHECK_LENGHT:	

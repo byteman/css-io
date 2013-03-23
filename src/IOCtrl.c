@@ -179,8 +179,8 @@ void JDQWriteFunc(U8 idx,U8 state)
     }
     else if(  idx >= 8 && (idx < 16))
     {
-        idx -= 7;
-        idx = 8-idx;
+      
+        idx = 15-idx;
         if(state == JDQ_STATUS_NC)
             P2 &= (~(1<< idx));
         else

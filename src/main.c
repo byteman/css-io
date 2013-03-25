@@ -131,7 +131,7 @@ void sendAD()
 		sendBuf[index*2+2] = adCode[index]&0xff;
 	}   
 	sendBuf[7] = ~P0;
-	sendBuf[8] = ~revertBits(P2);
+	sendBuf[8] = ~ReverseBits(P2);
 	//if//if(times_flag) 1s 后才更新速度,因为风速是计算每秒采集的脉冲计数，所以必须等到1s后才能计算出速度
     if(times1SFlag)
 	{	    
@@ -174,7 +174,7 @@ void sendADSrv()
 
 void sendVersion(void)
 {
-    printk("humeng io board ver%d.%d\r\n",VER_MAJOR,VER_MIN);
+    printk("huameng io board ver%d.%d\r\n",VER_MAJOR,VER_MIN);
 }
 
 void PCA_isr() interrupt 7 using 1

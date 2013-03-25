@@ -56,7 +56,7 @@ void tm0_isr() interrupt 1 using 1
     if (count50MS-- == 0)               //50ms send
     {
         count50MS = 2;               //reset counter
-        readAD(); //50ms 采样一次
+        
         time50msFlag = 1;
     }
     if( count1S-- == 0)
@@ -81,13 +81,26 @@ void Timer0Init(void)		//25毫秒@22.1184MHz
 	ET0 = 1;                        //enable timer0 interrupt
     EA = 1;                         //open global interrupt switch
 }
-void	readAD(void)
+void Delay100us()		//@22.1184MHz
 {
-	xdata unsigned char  chanlx;
-        
+	unsigned char i, j;
+
+	i = 3;
+	j = 35;
+	do
+	{
+		while (--j);
+	} while (--i);
+}
+
+xdata unsigned char  chanlx;
+void	readAD(void)
+{      
 	for(chanlx = 0;chanlx<CHANLE;chanlx++)
 	{		
-		adCode[chanlx] = sample(chanlx);			
+		adCode[chanlx] = sample(chanlx);
+        Delay100us();
+        			
 	}	
 }
 /************************************************
@@ -111,13 +124,14 @@ void sendAD()
 	xdata int index = 0;
 
 	sendBuf[0] = 0xAA;
+    readAD(); //50ms 采样一次
 	for(index = 0; index < CHANLE;  index++)
 	{
 		sendBuf[index*2+1] = (adCode[index]>>8)&0xff;
 		sendBuf[index*2+2] = adCode[index]&0xff;
 	}   
-	sendBuf[7] = P0;
-	sendBuf[8] = revertBits(P2);
+	sendBuf[7] = ~P0;
+	sendBuf[8] = ~revertBits(P2);
 	//if//if(times_flag) 1s 后才更新速度,因为风速是计算每秒采集的脉冲计数，所以必须等到1s后才能计算出速度
     if(times1SFlag)
 	{	    
@@ -149,8 +163,10 @@ void adResumeSend()
 }
 void sendADSrv()
 {
+    
     if(time50msFlag && adSendFlag)
     {
+        
         sendAD();
         time50msFlag = 0;
     }	
@@ -193,6 +209,14 @@ void gpioInit(void)
 
     P1M1 = 0x40;        //0100 0000
     P1M0 = 0xB0;        //1011 0000
+
+    P0M1 = 0x00;        //0100 0000
+    P0M0 = 0xFF;        //1011 0000
+
+    P2M1 = 0x00;        //0100 0000
+    P2M0 = 0xFF;        //1011 0000
+
+
 }
 
 
